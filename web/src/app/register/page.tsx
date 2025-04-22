@@ -1,115 +1,125 @@
+
 "use client";
+
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { auth } from '@/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import axios from 'axios';
 
-const RegisterPage = () => {
-  const [phoneNumber, setPhoneNumber] = useState('');
+export default function RegisterPage() {
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
 
-  const router = useRouter();
-
-  const handleRegister = async (event) => {
-    event.preventDefault();
+  const sendOtp = async () => {
     setLoading(true);
-    setError(null);
+    setMsg('');
+
+    // Ensure 10 digits only
+    if (!/^\d{10}$/.test(phone)) {
+      setMsg('❗ Please enter a valid 10-digit phone number');
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Step 1: (Optional) Send OTP first
-      const otpRes = await fetch('http://localhost:5000/send-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phoneNumber }),
+      const appVerifier = new RecaptchaVerifier(auth, 'recaptcha', {
+        size: 'invisible',
       });
 
-      const otpData = await otpRes.json();
-      if (!otpRes.ok) {
-        throw new Error(otpData.message || 'OTP sending failed');
-      }
-
-      console.log('OTP sent:', otpData);
-
-      // Step 2: Proceed to registration
-      const registerRes = await fetch('http://localhost:5000/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phoneNumber, password }),
-      });
-
-      const registerData = await registerRes.json();
-      if (!registerRes.ok) {
-        throw new Error(registerData.message || 'Registration failed');
-      }
-
-      console.log('Registration successful:', registerData);
-      router.push('/');
-    } catch (err) {
-      console.error('Error:', err);
-      setError(err.message || 'Unexpected error');
-    } finally {
-      setLoading(false);
+      const fullPhone = `+91${phone}`;
+      const result = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+      setConfirmationResult(result);
+      setStep(2);
+    } catch (err: any) {
+      setMsg(`❌ ${err.message}`);
     }
+    setLoading(false);
+  };
+
+  const verifyOtpAndRegister = async () => {
+    setLoading(true);
+    setMsg('');
+
+    try {
+      const result = await confirmationResult.confirm(otp);
+      const uid = result.user.uid;
+      const phoneNumber = result.user.phoneNumber;
+
+      await axios.post('http://localhost:5001/api/auth/register', {
+        uid,
+        phone: phoneNumber,
+        password,
+      });
+
+      setMsg('✅ Registered successfully!');
+    } catch (err: any) {
+      setMsg(`❌ ${err.message}`);
+    }
+
+    setLoading(false);
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md w-96">
-        <h2 className="text-2xl font-semibold mb-6 text-center">Register</h2>
-        <form onSubmit={handleRegister}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-              {error}
-            </div>
-          )}
-          <div className="mb-4">
-            <label htmlFor="phoneNumber" className="block text-gray-700 text-sm font-bold mb-2">
-              Phone Number
-            </label>
-            <input
-              type="text"
-              id="phoneNumber"
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-            />
-          </div>
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-indigo-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+    <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-xl font-bold mb-4">📱 Register with Phone</h1>
+
+      {step === 1 && (
+        <>
+          <label className="block mb-1 text-sm font-medium">Phone Number (+91)</label>
+          <input
+            className="border w-full p-2 mb-3"
+            placeholder="9876543210"
+            maxLength={10}
+            value={phone}
+            onChange={(e) => {
+              const onlyDigits = e.target.value.replace(/\D/g, '');
+              setPhone(onlyDigits);
+            }}
+          />
+          <input
+            className="border w-full p-2 mb-3"
+            placeholder="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           <button
-            type="submit"
-            className="w-full bg-indigo-500 text-white py-2 rounded hover:bg-indigo-600 transition-colors duration-300"
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+            onClick={sendOtp}
             disabled={loading}
           >
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? 'Sending OTP...' : 'Send OTP'}
           </button>
-        </form>
-        <p className="mt-4 text-center">
-          Already have an account?{' '}
-          <Link href="/" className="text-indigo-500 hover:underline">
-            Login
-          </Link>
-        </p>
-      </div>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <label className="block mb-1 text-sm font-medium">Enter OTP</label>
+          <input
+            className="border w-full p-2 mb-3"
+            placeholder="6-digit OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
+          <button
+            className="bg-green-600 text-white px-4 py-2 rounded"
+            onClick={verifyOtpAndRegister}
+            disabled={loading}
+          >
+            {loading ? 'Verifying...' : 'Verify & Register'}
+          </button>
+        </>
+      )}
+
+      <div id="recaptcha"></div>
+
+      {msg && <p className="mt-4 text-sm text-red-600">{msg}</p>}
     </div>
   );
-};
-
-export default RegisterPage;
+}

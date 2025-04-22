@@ -1,0 +1,19 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Firebase keys or secrets
+key/serviceAccountKey.json
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS-specific
+.DS_Store
+
+# Optional VS Code settings
+.vscode/
