@@ -1,8 +1,9 @@
-tsx
-"use client";
+"use client"
+
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+
 
 const navItems = [
   { label: "Home", href: "/" },
