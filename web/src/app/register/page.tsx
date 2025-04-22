@@ -10,16 +10,31 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
+
   const handleRegister = async (event) => {
     event.preventDefault();
     setLoading(true);
-
+    setError(null);
 
     try {
-      const response = await fetch('http://localhost:5000/register', {
-        
-        
-        
+      // Step 1: (Optional) Send OTP first
+      const otpRes = await fetch('http://localhost:5000/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+
+      const otpData = await otpRes.json();
+      if (!otpRes.ok) {
+        throw new Error(otpData.message || 'OTP sending failed');
+      }
+
+      console.log('OTP sent:', otpData);
+
+      // Step 2: Proceed to registration
+      const registerRes = await fetch('http://localhost:5000/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,17 +42,16 @@ const RegisterPage = () => {
         body: JSON.stringify({ phoneNumber, password }),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Registration failed');
-        return;
+      const registerData = await registerRes.json();
+      if (!registerRes.ok) {
+        throw new Error(registerData.message || 'Registration failed');
       }
 
-      console.log('Registration successful', data);
+      console.log('Registration successful:', registerData);
       router.push('/');
-    } catch (error) {
-      console.error('Error during registration:', error);
-      setError('Error During Registration');
+    } catch (err) {
+      console.error('Error:', err);
+      setError(err.message || 'Unexpected error');
     } finally {
       setLoading(false);
     }
@@ -48,7 +62,11 @@ const RegisterPage = () => {
       <div className="bg-white p-8 rounded shadow-md w-96">
         <h2 className="text-2xl font-semibold mb-6 text-center">Register</h2>
         <form onSubmit={handleRegister}>
-          {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">{error}</div>}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+              {error}
+            </div>
+          )}
           <div className="mb-4">
             <label htmlFor="phoneNumber" className="block text-gray-700 text-sm font-bold mb-2">
               Phone Number
@@ -60,7 +78,7 @@ const RegisterPage = () => {
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               required
-            />          
+            />
           </div>
           <div className="mb-6">
             <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
@@ -78,8 +96,9 @@ const RegisterPage = () => {
           <button
             type="submit"
             className="w-full bg-indigo-500 text-white py-2 rounded hover:bg-indigo-600 transition-colors duration-300"
-            disabled={loading}>
-            Register
+            disabled={loading}
+          >
+            {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
         <p className="mt-4 text-center">
