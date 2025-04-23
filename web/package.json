@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "axios": "^1.8.4",
-    "firebase": "^11.6.0",
+    "firebase": "^9.23.0",
     "lightningcss": "^1.29.3",
     "lucide-react": "^0.488.0",
     "next": "15.3.0",

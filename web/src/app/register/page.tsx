@@ -1,12 +1,11 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { auth } from '@/firebase'; // ✅ correctly imported
+import React, { useEffect, useState } from 'react';
+import { auth } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-
 import axios from 'axios';
 
-// ✅ Type declaration for reCAPTCHA verifier
+// For TypeScript
 declare global {
   interface Window {
     recaptchaVerifier: RecaptchaVerifier;
@@ -17,21 +16,46 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
-
-  // ✅ Setup reCAPTCHA once on component mount
-
-  console.log('typeof auth:', typeof auth); // should print "object"
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
 
   useEffect(() => {
-    const initRecaptcha = async () => {
-      if (typeof window === 'undefined' || window.recaptchaVerifier || !auth) return;
+    if (typeof window !== 'undefined' && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        'recaptcha',
+        {
+          size: 'invisible',
+          callback: (response: any) => {
+            console.log('✅ reCAPTCHA solved:', response);
+          },
+        },
+        auth
+      );
   
-      try {
-        const recaptcha = new RecaptchaVerifier(
+      window.recaptchaVerifier.render().then((widgetId) => {
+        console.log('📛 reCAPTCHA widget rendered:', widgetId);
+      });
+    }
+  }, []);
+  
+  const sendOtp = async () => {
+    setLoading(true);
+    setMsg('');
+  
+    if (!/^\d{10}$/.test(phone)) {
+      setMsg('❗ Please enter a valid 10-digit number');
+      setLoading(false);
+      return;
+    }
+  
+    try {
+      const fullPhone = `+91${phone}`;
+  
+      // 🛡️ Ensure reCAPTCHA is initialized
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(
           'recaptcha',
           {
             size: 'invisible',
@@ -41,32 +65,9 @@ export default function RegisterPage() {
           },
           auth
         );
-  
-        window.recaptchaVerifier = recaptcha;
-        await recaptcha.render();
-        console.log('✅ reCAPTCHA rendered');
-      } catch (error) {
-        console.error('❌ reCAPTCHA init error:', error);
+        await window.recaptchaVerifier.render();
       }
-    };
   
-    initRecaptcha();
-  }, []);
-  
-    
-  // ✅ Send OTP to phone number
-  const sendOtp = async () => {
-    setLoading(true);
-    setMsg('');
-
-    if (!/^\d{10}$/.test(phone)) {
-      setMsg('❗ Please enter a valid 10-digit phone number');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const fullPhone = `+91${phone}`;
       const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
       setConfirmationResult(result);
       setStep(2);
@@ -76,8 +77,8 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+  
 
-  // ✅ Verify OTP and register user via backend
   const verifyOtpAndRegister = async () => {
     setLoading(true);
     setMsg('');
@@ -111,8 +112,8 @@ export default function RegisterPage() {
           <input
             className="border w-full p-2 mb-3"
             placeholder="9876543210"
-            maxLength={10}
             value={phone}
+            maxLength={10}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
           />
           <input
@@ -151,7 +152,6 @@ export default function RegisterPage() {
         </>
       )}
 
-      {/* Required for invisible reCAPTCHA */}
       <div id="recaptcha"></div>
 
       {msg && <p className="mt-4 text-sm text-red-600">{msg}</p>}
