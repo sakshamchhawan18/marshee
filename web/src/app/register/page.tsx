@@ -22,24 +22,16 @@ export default function RegisterPage() {
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !window.recaptchaVerifier) {
+    if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         'recaptcha',
-        {
-          size: 'invisible',
-          callback: (response: any) => {
-            console.log('✅ reCAPTCHA solved:', response);
-          },
-        },
-        auth
+        { size: 'invisible' },
+        auth // ✅ THIS must be the Firebase Auth object
       );
-  
-      window.recaptchaVerifier.render().then((widgetId) => {
-        console.log('📛 reCAPTCHA widget rendered:', widgetId);
-      });
+      window.recaptchaVerifier.render();
     }
   }, []);
-  
+   
   const sendOtp = async () => {
     setLoading(true);
     setMsg('');
@@ -49,34 +41,25 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
-  
+    console.log('📲 Using auth:', auth, 'recaptchaVerifier:', window.recaptchaVerifier);
+    console.log("🧪 Debug -> Auth:", auth);
+console.log("🧪 Debug -> recaptchaVerifier:", window.recaptchaVerifier);
+
+
     try {
       const fullPhone = `+91${phone}`;
-  
-      // 🛡️ Ensure reCAPTCHA is initialized
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(
-          'recaptcha',
-          {
-            size: 'invisible',
-            callback: (response: any) => {
-              console.log('✅ reCAPTCHA solved:', response);
-            },
-          },
-          auth
-        );
-        await window.recaptchaVerifier.render();
-      }
-  
       const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
+  
       setConfirmationResult(result);
       setStep(2);
     } catch (err: any) {
+      console.error('❌ signInWithPhoneNumber error:', err); // 🔍 DEBUG LOG
       setMsg(`❌ ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
+  
   
 
   const verifyOtpAndRegister = async () => {
